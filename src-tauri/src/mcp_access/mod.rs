@@ -23,7 +23,7 @@ use tauri::AppHandle;
 use crate::artifacts::tools::ArtifactTools;
 use crate::filesystem::workspace::data_dir;
 use crate::implementation::tools::ImplementationTools;
-use http::{BodyError, Head, Reply};
+use http::{Head, Reply, text_reply};
 use rpc::Outcome;
 use tools::ToolSet;
 
@@ -31,7 +31,6 @@ const PATH: &str = "/mcp";
 const CONFIG_DIR_NAME: &str = "mcp";
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
 const APPLICATION_JSON: &str = "application/json";
-const TEXT_PLAIN: &str = "text/plain; charset=utf-8";
 const BEARER: &str = "Bearer ";
 
 /// Alle Werkzeug-Sätze; ein neues Feature hängt hier eine Zeile an.
@@ -180,35 +179,9 @@ impl Connection {
         let Some(session_id) = session_id else {
             return (text_reply(401, "Unauthorized", "Schlüssel fehlt"), true);
         };
-        let is_json = head.header("content-type").is_some_and(|value: &str| {
-            value
-                .split(';')
-                .next()
-                .is_some_and(|media: &str| media.trim().eq_ignore_ascii_case(APPLICATION_JSON))
-        });
-        if !is_json {
-            return (
-                text_reply(415, "Unsupported Media Type", "Nur application/json"),
-                true,
-            );
-        }
-        let body = match http::read_body(stream, head) {
+        let body = match http::read_json_body(stream, head) {
             Ok(body) => body,
-            Err(BodyError::LengthRequired) => {
-                return (
-                    text_reply(411, "Length Required", "Content-Length fehlt"),
-                    true,
-                );
-            }
-            Err(BodyError::TooLarge) => {
-                return (
-                    text_reply(413, "Payload Too Large", "Höchstens 1 MiB"),
-                    true,
-                );
-            }
-            Err(BodyError::Incomplete) => {
-                return (text_reply(400, "Bad Request", "Körper unvollständig"), true);
-            }
+            Err(reply) => return (reply, true),
         };
         let reply = match rpc::handle(&self.app, &session_id, &body, &self.access.tool_sets) {
             Outcome::Reply {
@@ -219,26 +192,20 @@ impl Connection {
                 reason: "OK",
                 content_type: APPLICATION_JSON,
                 body: serde_json::to_vec(&body).unwrap_or_default(),
-                session_id: is_initialize.then_some(session_id),
+                headers: if is_initialize {
+                    vec![("Mcp-Session-Id", session_id)]
+                } else {
+                    Vec::new()
+                },
             },
             Outcome::Accepted => Reply {
                 status: 202,
                 reason: "Accepted",
                 content_type: APPLICATION_JSON,
                 body: Vec::new(),
-                session_id: None,
+                headers: Vec::new(),
             },
         };
         (reply, false)
-    }
-}
-
-fn text_reply(status: u16, reason: &'static str, text: &str) -> Reply {
-    Reply {
-        status,
-        reason,
-        content_type: TEXT_PLAIN,
-        body: text.as_bytes().to_vec(),
-        session_id: None,
     }
 }

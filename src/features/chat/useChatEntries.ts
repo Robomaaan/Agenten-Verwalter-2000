@@ -23,7 +23,7 @@ export interface ChatEntries {
   loadOlder: () => void;
 }
 
-interface ChatState {
+export interface ChatState {
   entries: readonly ChatEntry[];
   hasMore: boolean;
   loadingOlder: boolean;
@@ -35,7 +35,7 @@ interface ChatSnapshot extends ChatState {
   sessionId: string;
 }
 
-interface ChatLoader {
+export interface ChatLoader {
   receive: (entry: ChatEntry) => void;
   loadLatest: () => void;
   loadOlder: () => void;
@@ -54,6 +54,7 @@ export function useChatEntries(sessionId: string): ChatEntries {
     let unlisten: UnlistenFn | null = null;
     const loader: ChatLoader = createChatLoader(
       sessionId,
+      getChatHistory,
       controller.signal,
       (state: ChatState) => {
         setSnapshot({ sessionId, ...state });
@@ -121,8 +122,9 @@ export function useChatEntries(sessionId: string): ChatEntries {
 
 /** Besitzt den geladenen Ausschnitt außerhalb von React, damit Ereignisse, Nachladen und Neuladen
  *  denselben Stand sehen, ohne auf einen Render zu warten. */
-function createChatLoader(
+export function createChatLoader(
   sessionId: string,
+  loadPage: (sessionId: string, before: number | null, limit: number) => Promise<ChatPage>,
   signal: AbortSignal,
   publish: (state: ChatState) => void,
 ): ChatLoader {
@@ -161,7 +163,7 @@ function createChatLoader(
 
   function loadLatest(): void {
     waiting ??= [];
-    getChatHistory(sessionId, null, PAGE_SIZE)
+    loadPage(sessionId, null, PAGE_SIZE)
       .then((page: ChatPage) => {
         if (signal.aborted) {
           return;
@@ -212,7 +214,7 @@ function createChatLoader(
     loadingOlder = true;
     olderError = null;
     emit();
-    getChatHistory(sessionId, firstSeq, PAGE_SIZE)
+    loadPage(sessionId, firstSeq, PAGE_SIZE)
       .then((page: ChatPage) => {
         if (signal.aborted) {
           return;

@@ -340,7 +340,7 @@ fn hex_value(byte: u8) -> Option<u8> {
         .and_then(|digit: u32| u8::try_from(digit).ok())
 }
 
-fn content_type(path: &Path) -> &'static str {
+pub fn content_type(path: &Path) -> &'static str {
     let extension = path
         .extension()
         .map(|extension| extension.to_string_lossy().to_ascii_lowercase())
@@ -350,6 +350,7 @@ fn content_type(path: &Path) -> &'static str {
         "css" => "text/css; charset=utf-8",
         "js" | "mjs" => "text/javascript; charset=utf-8",
         "json" | "map" => JSON,
+        "webmanifest" => "application/manifest+json",
         "svg" => "image/svg+xml",
         "png" => "image/png",
         "jpg" | "jpeg" => "image/jpeg",

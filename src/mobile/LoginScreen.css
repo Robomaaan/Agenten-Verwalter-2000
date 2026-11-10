@@ -1,0 +1,51 @@
+.login-screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-height: 100dvh;
+  padding: var(--space-3xl) var(--space-xl);
+  background: var(--color-bg-base);
+  color: var(--color-fg-primary);
+  font-family: var(--font-sans);
+
+  &__title {
+    margin: 0;
+    font-size: var(--font-size-xl);
+  }
+
+  &__hint {
+    margin: 0;
+    color: var(--color-fg-muted);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+  }
+
+  &__input {
+    padding: var(--space-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-surface);
+    color: var(--color-fg-primary);
+    font: inherit;
+    /* Unter 16px zoomt iOS beim Fokus in die Seite. */
+    font-size: 16px;
+  }
+
+  &__button {
+    min-height: 44px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-accent);
+    color: var(--color-fg-on-accent);
+    font: inherit;
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+
+  &__error {
+    margin: 0;
+    color: var(--color-status-error);
+  }
+}

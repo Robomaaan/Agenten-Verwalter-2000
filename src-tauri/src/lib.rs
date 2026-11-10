@@ -21,6 +21,7 @@ pub mod implementation;
 pub mod lmstudio;
 pub mod mcp;
 pub mod mcp_access;
+pub mod mobile;
 pub mod notices;
 pub mod processes;
 pub mod projects;
@@ -100,6 +101,9 @@ pub fn run() {
                     app.manage(access);
                 }
                 Err(error) => eprintln!("MCP-Zugang nicht gestartet: {error}"),
+            }
+            if let Err(error) = mobile::start(app.handle().clone()) {
+                eprintln!("Handy-Zugang nicht gestartet: {error}");
             }
             Ok(())
         })
