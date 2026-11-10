@@ -1,0 +1,31 @@
+.mobile-app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: var(--color-bg-base);
+  color: var(--color-fg-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+
+  &--center {
+    align-items: center;
+    justify-content: center;
+    color: var(--color-fg-muted);
+  }
+
+  &__error {
+    padding: var(--space-sm) var(--space-lg);
+    background: var(--color-status-error-subtle);
+    color: var(--color-status-error);
+  }
+}
+
+.mobile-app__retry {
+  min-height: 44px;
+  padding: 0 var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  color: var(--color-fg-primary);
+  font: inherit;
+}

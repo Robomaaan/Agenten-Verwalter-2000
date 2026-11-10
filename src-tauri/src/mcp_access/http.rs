@@ -1,6 +1,6 @@
-//! Das Stück HTTP, das der MCP-Zugang braucht: Kopf lesen, danach genau `Content-Length` Bytes
-//! Körper, Antwort schreiben. Nie `Access-Control-*`: keine Seite im Browser soll eine Antwort
-//! lesen dürfen (ADR 046).
+//! Das Stück HTTP, das MCP-Zugang und Handy-Zugang brauchen: Kopf lesen, danach genau
+//! `Content-Length` Bytes Körper, Antwort schreiben. Nie `Access-Control-*`: keine fremde Seite im
+//! Browser soll eine Antwort lesen dürfen (ADR 046, ADR 059).
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};
 
@@ -9,6 +9,8 @@ const MAX_HEAD_BYTES: usize = 16 * 1024;
 /// Obergrenze beim Verwerfen eines abgelehnten Körpers.
 const MAX_DRAIN_BYTES: usize = 8 * MAX_BODY_BYTES;
 const HEAD_END: &[u8] = b"\r\n\r\n";
+const APPLICATION_JSON: &str = "application/json";
+const TEXT_PLAIN: &str = "text/plain; charset=utf-8";
 
 pub struct Head {
     pub method: String,
@@ -101,8 +103,36 @@ pub struct Reply {
     pub reason: &'static str,
     pub content_type: &'static str,
     pub body: Vec<u8>,
-    /// Kopf `Mcp-Session-Id`, nur auf `initialize`.
-    pub session_id: Option<String>,
+    pub headers: Vec<(&'static str, String)>,
+}
+
+pub fn text_reply(status: u16, reason: &'static str, text: &str) -> Reply {
+    Reply {
+        status,
+        reason,
+        content_type: TEXT_PLAIN,
+        body: text.as_bytes().to_vec(),
+        headers: Vec::new(),
+    }
+}
+
+/// Körper einer JSON-Anfrage, sonst die Ablehnung. Eine fremde Seite kann JSON nur nach einer
+/// Vorabfrage schicken, und die beantwortet keiner der Server.
+pub fn read_json_body(stream: &mut TcpStream, head: Head) -> Result<Vec<u8>, Reply> {
+    let is_json = head.header("content-type").is_some_and(|value: &str| {
+        value
+            .split(';')
+            .next()
+            .is_some_and(|media: &str| media.trim().eq_ignore_ascii_case(APPLICATION_JSON))
+    });
+    if !is_json {
+        return Err(text_reply(415, "Unsupported Media Type", "Nur application/json"));
+    }
+    read_body(stream, head).map_err(|error: BodyError| match error {
+        BodyError::LengthRequired => text_reply(411, "Length Required", "Content-Length fehlt"),
+        BodyError::TooLarge => text_reply(413, "Payload Too Large", "Höchstens 1 MiB"),
+        BodyError::Incomplete => text_reply(400, "Bad Request", "Körper unvollständig"),
+    })
 }
 
 pub fn write_reply(stream: &mut TcpStream, reply: &Reply) -> io::Result<()> {
@@ -114,8 +144,8 @@ pub fn write_reply(stream: &mut TcpStream, reply: &Reply) -> io::Result<()> {
         reply.content_type,
         reply.body.len()
     );
-    if let Some(session_id) = &reply.session_id {
-        head.push_str(&format!("Mcp-Session-Id: {session_id}\r\n"));
+    for (name, value) in &reply.headers {
+        head.push_str(&format!("{name}: {value}\r\n"));
     }
     head.push_str("\r\n");
     stream.write_all(head.as_bytes())?;

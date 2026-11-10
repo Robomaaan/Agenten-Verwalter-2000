@@ -1,0 +1,115 @@
+.chat-screen {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    padding-top: max(var(--space-sm), env(safe-area-inset-top));
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-sidebar);
+  }
+
+  &__back {
+    min-width: 44px;
+    min-height: 44px;
+    border: none;
+    background: none;
+    color: var(--color-fg-primary);
+    font-size: var(--font-size-xl);
+  }
+
+  &__title {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__name {
+    overflow: hidden;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__status {
+    color: var(--color-fg-muted);
+    font-size: var(--font-size-sm);
+  }
+
+  &__action {
+    min-height: 36px;
+    padding: 0 var(--space-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-surface);
+    color: var(--color-fg-primary);
+    font: inherit;
+  }
+
+  &__timeline {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--space-sm);
+    overflow-y: auto;
+    padding: var(--space-md);
+  }
+
+  &__older {
+    align-self: center;
+    padding: var(--space-xs) var(--space-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: none;
+    color: var(--color-fg-secondary);
+    font: inherit;
+  }
+
+  &__error {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-status-error-subtle);
+    color: var(--color-status-error);
+  }
+
+  &__composer {
+    display: flex;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    padding-bottom: max(var(--space-sm), env(safe-area-inset-bottom));
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg-sidebar);
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-surface);
+    color: var(--color-fg-primary);
+    font: inherit;
+    /* Unter 16px zoomt iOS beim Fokus in die Seite. */
+    font-size: 16px;
+    resize: none;
+  }
+
+  &__send {
+    padding: 0 var(--space-lg);
+    border: none;
+    border-radius: var(--radius-md);
+    background: var(--color-accent);
+    color: var(--color-fg-on-accent);
+    font: inherit;
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+}
