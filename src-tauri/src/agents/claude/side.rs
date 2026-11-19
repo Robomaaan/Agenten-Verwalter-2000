@@ -50,7 +50,7 @@ fn side_command(options: &SpawnOptions) -> Command {
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .arg("-p");
-    common_args(&mut command, options, PERMISSION_MODE);
+    common_args(&mut command, options, PERMISSION_MODE, false);
     command
         .arg("--resume")
         .arg(&options.session_id)

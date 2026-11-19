@@ -6,6 +6,8 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread;
 use std::time::Duration;
 
+use serde_json::json;
+
 use crate::agents::claude::local::{self, LocalBackend, LocalProgram};
 use crate::agents::event::{Effort, Mode, ModelId};
 use crate::processes::hide_console;
@@ -14,6 +16,8 @@ use crate::{codex, standalone};
 const EXIT_POLL_INTERVAL: Duration = Duration::from_millis(50);
 /// Erlaubt alle Werkzeuge des MCP-Zugangs (`mcp__verwalter__…`).
 const VERWALTER_MCP_RULE: &str = "mcp__verwalter";
+/// Erlaubt alle Ruflo-Werkzeuge (`mcp__ruflo__…`) in der Hauptsitzung.
+const RUFLO_MCP_RULE: &str = "mcp__ruflo";
 
 pub struct SpawnOptions {
     pub exe: PathBuf,
@@ -129,7 +133,7 @@ fn build_command(opts: &SpawnOptions) -> Command {
         .arg("--verbose")
         .arg("--permission-prompt-tool")
         .arg("stdio");
-    common_args(&mut command, opts, opts.mode.cli_value());
+    common_args(&mut command, opts, opts.mode.cli_value(), true);
     if opts.resume {
         command.arg("--resume");
     } else {
@@ -141,8 +145,14 @@ fn build_command(opts: &SpawnOptions) -> Command {
 }
 
 /// Alles, was Systemprompt, Werkzeugliste und Modell bestimmt. Eine Nebenfrage (`side.rs`) setzt
-/// dieselben Argumente, damit sie den Prompt-Cache des Hauptprozesses liest (ADR 044).
-pub(super) fn common_args(command: &mut Command, opts: &SpawnOptions, permission_mode: &str) {
+/// dieselben Argumente, damit sie den Prompt-Cache des Hauptprozesses liest (ADR 044). Nur der
+/// Hauptprozess gibt Ruflo frei (`ruflo_allowed`); die Nebenfrage lädt den Server, darf ihn aber nicht nutzen.
+pub(super) fn common_args(
+    command: &mut Command,
+    opts: &SpawnOptions,
+    permission_mode: &str,
+    ruflo_allowed: bool,
+) {
     command.arg("--model").arg(model_arg(opts));
     // Das lokale Modell kennt keinen Denkaufwand, und Artefakte veröffentlicht nur Anthropic.
     if opts.local.is_none() {
@@ -180,6 +190,8 @@ pub(super) fn common_args(command: &mut Command, opts: &SpawnOptions, permission
             command.env(standalone::SCRATCHPAD_VARIABLE, dir);
         }
     }
+    // Ruflo gilt nur für Anthropic-Sitzungen, nicht für lokale Modelle und Codex.
+    let anthropic = opts.local.is_none() && opts.codex_exe.is_none();
     // Ein gemeinsamer Text: der autarke Agent liest nur ein `--append-system-prompt`, ein zweites
     // überschriebe das erste.
     let mut prompts: Vec<String> = Vec::new();
@@ -189,7 +201,7 @@ pub(super) fn common_args(command: &mut Command, opts: &SpawnOptions, permission
     if let Some(dir) = &opts.artifacts {
         prompts.push(artifacts_prompt(
             dir,
-            opts.local.is_none() && opts.codex_exe.is_none(),
+            anthropic,
             opts.verwalter_mcp.is_some() && opts.codex_exe.is_none(),
         ));
     }
@@ -206,6 +218,9 @@ pub(super) fn common_args(command: &mut Command, opts: &SpawnOptions, permission
     if opts.verwalter_mcp.is_some() {
         allowed_rules.push(VERWALTER_MCP_RULE);
     }
+    if anthropic && ruflo_allowed {
+        allowed_rules.push(RUFLO_MCP_RULE);
+    }
     if !allowed_rules.is_empty() {
         command.arg("--allowedTools").args(&allowed_rules);
     }
@@ -216,9 +231,34 @@ pub(super) fn common_args(command: &mut Command, opts: &SpawnOptions, permission
     // ist — die der Repositories reichen wir ausdrücklich nach.
     let mut mcp_configs = project_mcp_configs(&opts.add_dirs);
     mcp_configs.extend(opts.verwalter_mcp.iter().cloned());
-    if !mcp_configs.is_empty() {
+    // Die JSON-Zeile muss vor der nächsten Option stehen; `--mcp-config` nimmt Werte bis dahin.
+    if !mcp_configs.is_empty() || anthropic {
         command.arg("--mcp-config").args(&mcp_configs);
+        if anthropic {
+            command.arg(ruflo_mcp_config());
+        }
     }
+}
+
+/// Ruflo-Server als JSON-Text; die Version ist festgepinnt. `RUFLO_FUNNEL=0` schaltet Ruflos Funnel ab.
+fn ruflo_mcp_config() -> String {
+    let (program, mut args): (&str, Vec<&str>) = if cfg!(windows) {
+        ("cmd", vec!["/c", "npx"])
+    } else {
+        ("npx", vec![])
+    };
+    args.extend(["-y", "ruflo@3.77.2", "mcp", "start"]);
+    json!({
+        "mcpServers": {
+            "ruflo": {
+                "type": "stdio",
+                "command": program,
+                "args": args,
+                "env": { "RUFLO_FUNNEL": "0" },
+            },
+        },
+    })
+    .to_string()
 }
 
 /// In „Codex“ das Codex-Modell der Session, leer = Standardmodell von Codex; das Claude-Modell gilt
@@ -350,4 +390,19 @@ fn wait_for_exit(child: &Mutex<Child>) -> Option<i32> {
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ruflo_mcp_config;
+
+    #[test]
+    fn ruflo_config_pins_version_and_turns_funnel_off() {
+        let config: serde_json::Value = serde_json::from_str(&ruflo_mcp_config())
+            .expect("Ruflo-Konfiguration ist gültiges JSON");
+        let server = &config["mcpServers"]["ruflo"];
+        assert_eq!(server["type"], "stdio");
+        assert!(server["args"].to_string().contains("ruflo@3.77.2"));
+        assert_eq!(server["env"]["RUFLO_FUNNEL"], "0");
+    }
 }

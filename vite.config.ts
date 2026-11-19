@@ -19,6 +19,15 @@ export default defineConfig(() => ({
     },
   },
 
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        mobile: fileURLToPath(new URL('./mobile.html', import.meta.url)),
+      },
+    },
+  },
+
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -41,6 +50,9 @@ export default defineConfig(() => ({
           port: 1421,
         }
       : undefined,
+    proxy: {
+      '/api': 'http://127.0.0.1:47800',
+    },
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ['**/src-tauri/**'],

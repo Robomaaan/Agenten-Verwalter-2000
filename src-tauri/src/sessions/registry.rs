@@ -98,9 +98,9 @@ mod tldr;
 
 use self::implementation::ReportUpdate;
 
-const SESSION_CHANGED_EVENT: &str = "session://changed";
-const PROJECT_CHANGED_EVENT: &str = "project://changed";
-const CHAT_ENTRY_EVENT: &str = "chat://entry";
+pub const SESSION_CHANGED_EVENT: &str = "session://changed";
+pub const PROJECT_CHANGED_EVENT: &str = "project://changed";
+pub const CHAT_ENTRY_EVENT: &str = "chat://entry";
 const BACKGROUND_CHANGED_EVENT: &str = "background://changed";
 const CONTEXT_CHANGED_EVENT: &str = "context://changed";
 const MAX_SUBAGENT_STEPS: usize = 200;

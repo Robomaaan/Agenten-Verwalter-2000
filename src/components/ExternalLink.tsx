@@ -1,4 +1,5 @@
 import type { MouseEvent, ReactElement, ReactNode } from 'react';
+import { isTauri } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import './ExternalLink.css';
 
@@ -25,6 +26,9 @@ export function ExternalLink({ href, children }: ExternalLinkProps): ReactElemen
   const targetUrl: string = href;
 
   function openInBrowser(event: MouseEvent<HTMLAnchorElement>): void {
+    if (!isTauri()) {
+      return;
+    }
     // Ohne preventDefault würde das App-Fenster selbst zur Seite navigieren.
     event.preventDefault();
     openUrl(targetUrl).catch((error: unknown): void => {
@@ -38,6 +42,8 @@ export function ExternalLink({ href, children }: ExternalLinkProps): ReactElemen
       className="external-link"
       href={href}
       title={href}
+      target="_blank"
+      rel="noreferrer"
       onClick={openInBrowser}
       onAuxClick={openInBrowser}
     >
