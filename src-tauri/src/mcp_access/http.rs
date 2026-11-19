@@ -126,7 +126,11 @@ pub fn read_json_body(stream: &mut TcpStream, head: Head) -> Result<Vec<u8>, Rep
             .is_some_and(|media: &str| media.trim().eq_ignore_ascii_case(APPLICATION_JSON))
     });
     if !is_json {
-        return Err(text_reply(415, "Unsupported Media Type", "Nur application/json"));
+        return Err(text_reply(
+            415,
+            "Unsupported Media Type",
+            "Nur application/json",
+        ));
     }
     read_body(stream, head).map_err(|error: BodyError| match error {
         BodyError::LengthRequired => text_reply(411, "Length Required", "Content-Length fehlt"),
